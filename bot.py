@@ -1,6 +1,11 @@
 import logging
+import os
+from dotenv import load_dotenv
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
+
+# Load environment variables
+load_dotenv()
 
 # Enable logging
 logging.basicConfig(
@@ -86,7 +91,6 @@ async def name(update, context):
     """Store name and ask for phone number."""
     name = update.message.text.strip()
     
-    # Basic name validation
     if len(name) < 2:
         await update.message.reply_text(
             "Please enter a valid full name (at least 2 characters):"
@@ -126,11 +130,6 @@ async def phone(update, context):
         "Thank you for choosing our Servant Agency! 🌟"
     )
     
-    # Optional: You can add code here to:
-    # 1. Save to database
-    # 2. Send notification to admin
-    # 3. Send email confirmation
-    
     return ConversationHandler.END
 
 async def cancel(update, context):
@@ -157,14 +156,19 @@ async def help_command(update, context):
     )
 
 def main():
-    """Start the bot."""
-    # Your bot token
-    TOKEN = "8480387162:AAETd8N4OHPe3JZSBr2BUwIuVKCOlfss0qc"
+    """Start the client service bot."""
+    # Get token from environment variables
+    TOKEN = os.getenv('BOT_TOKEN_CLIENT')
+    
+    if not TOKEN:
+        logger.error("❌ BOT_TOKEN_CLIENT not found in environment variables!")
+        logger.error("Please check your .env file")
+        return
     
     # Create the Application
     application = Application.builder().token(TOKEN).build()
 
-    # Add conversation handler with the states
+    # Add conversation handler
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
@@ -174,12 +178,8 @@ def main():
             SERVICES: [
                 MessageHandler(filters.Regex('^(Full House Work|Cleaning the House|Doing the Laundry|More Services)$'), services)
             ],
-            NAME: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, name)
-            ],
-            PHONE: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, phone)
-            ],
+            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, name)],
+            PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, phone)],
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
@@ -190,9 +190,16 @@ def main():
     application.add_handler(CommandHandler("cancel", cancel))
 
     # Start the Bot
-    print("🤖 Servant Agency Bot is starting...")
+    print("🤖 Client Service Bot is starting...")
+    print("✅ Token loaded from environment variables")
+    print("🏠 Bot is ready to accept service requests!")
     print("Press Ctrl+C to stop the bot")
-    application.run_polling()
+    
+    try:
+        application.run_polling()
+    except Exception as e:
+        logger.error(f"❌ Bot failed to start: {e}")
+        print("❌ Bot failed to start. Please check your token and internet connection.")
 
 if __name__ == '__main__':
     main()

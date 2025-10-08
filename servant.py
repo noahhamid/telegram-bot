@@ -1,6 +1,11 @@
 import logging
+import os
+from dotenv import load_dotenv
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
+
+# Load environment variables
+load_dotenv()
 
 # Enable logging
 logging.basicConfig(
@@ -131,7 +136,8 @@ async def get_location(update, context):
         "• 'Available from next month'\n"
         "• 'Weekdays 9 AM - 5 PM'\n"
         "• 'Flexible schedule'\n"
-        "• 'Need 2 weeks notice'"
+        "• 'Need 2 weeks notice'\n"
+        "• 'Available on weekends only'"
     )
     return AVAILABILITY
 
@@ -173,6 +179,7 @@ async def get_work_type(update, context):
     skills = context.user_data.get('skills', 'Not provided')
     location = context.user_data.get('location', 'Not provided')
     availability = context.user_data.get('availability', 'Not provided')
+    work_type = context.user_data.get('work_type', 'Not provided')
     
     # Create beautiful summary
     summary_text = (
@@ -192,15 +199,12 @@ async def get_work_type(update, context):
     )
     
     # Log the registration
-    logger.info(f"New servant registration: {name}, {age}, {location}, {skills}, {work_type}")
+    logger.info(f"New servant registration: {name}, {age}y, {location}, {skills}, {work_type}")
     
     await update.message.reply_text(
         summary_text,
         reply_markup=ReplyKeyboardRemove()
     )
-    
-    # Optional: Send notification to admin
-    # await send_admin_notification(context, context.user_data)
     
     return ConversationHandler.END
 
@@ -228,16 +232,32 @@ async def help_command(update, context):
         "We're excited to have you join our professional team!"
     )
 
-async def send_admin_notification(context, user_data):
-    """Optional: Send registration notification to admin."""
-    # You can implement this to notify admins about new registrations
-    # Example: Save to database, send email, or message admin chat
-    pass
+async def status_command(update, context):
+    """Check registration status."""
+    if context.user_data:
+        await update.message.reply_text(
+            "📋 **Your Current Registration Data:**\n\n"
+            f"Name: {context.user_data.get('name', 'Not provided')}\n"
+            f"Age: {context.user_data.get('age', 'Not provided')}\n"
+            f"Skills: {context.user_data.get('skills', 'Not provided')}\n"
+            f"Location: {context.user_data.get('location', 'Not provided')}\n"
+            f"Work Type: {context.user_data.get('work_type', 'Not provided')}\n\n"
+            "Use /start to continue or complete registration."
+        )
+    else:
+        await update.message.reply_text(
+            "No registration data found. Use /start to begin your registration."
+        )
 
 def main():
     """Start the servant registration bot."""
-    # Your bot token (you can use the same or create a new bot for servants)
-    TOKEN = "8298183314:AAGtNKOHmaafI7Z16VTTpHQ-sKooJls6tTo"
+    # Get token from environment variables
+    TOKEN = os.getenv('BOT_TOKEN_SERVANT')
+    
+    if not TOKEN:
+        logger.error("❌ BOT_TOKEN_SERVANT not found in environment variables!")
+        logger.error("Please check your .env file")
+        return
     
     # Create the Application
     application = Application.builder().token(TOKEN).build()
@@ -264,11 +284,19 @@ def main():
     application.add_handler(conv_handler)
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("cancel", cancel))
+    application.add_handler(CommandHandler("status", status_command))
 
     # Start the Bot
     print("🤖 Servant Registration Bot is starting...")
+    print("✅ Token loaded from environment variables")
+    print("📝 Bot is ready to accept servant registrations!")
     print("Press Ctrl+C to stop the bot")
-    application.run_polling()
+    
+    try:
+        application.run_polling()
+    except Exception as e:
+        logger.error(f"❌ Bot failed to start: {e}")
+        print("❌ Bot failed to start. Please check your token and internet connection.")
 
 if __name__ == '__main__':
     main()
